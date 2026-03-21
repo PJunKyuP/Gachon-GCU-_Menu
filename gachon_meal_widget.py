@@ -1,3 +1,4 @@
+import calendar
 import datetime as dt
 import html
 import re
@@ -6,6 +7,7 @@ import sys
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
+import urllib.parse
 import webbrowser
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +27,9 @@ CAFETERIAS = [
 CARD_COLORS = ["#F9E79F", "#F5CBA7", "#D5F5E3", "#D6EAF8"]
 REFRESH_MINUTES = 30
 DATE_RE = re.compile(r"\d{4}\.\d{2}\.\d{2}")
+PERIOD_RE = re.compile(r"(\d{4}\.\d{2}\.\d{2})\s*~\s*(\d{4}\.\d{2}\.\d{2})")
+WEEKDAY_KR = ("월", "화", "수", "목", "금", "토", "일")
+MAX_WEEK_LOOKUP_STEPS = 12
 SECTION_TITLES = {
     "lunch": "점심",
     "dinner": "저녁",
@@ -91,7 +96,196 @@ class DayMenu:
     meals: list[tuple[str, str]] = field(default_factory=list)
 
 
-def fetch_html_with_curl(url: str, timeout_seconds: int = 25) -> str:
+@dataclass(frozen=True)
+class WeekNavForm:
+    action: str
+    layout: str
+    monday: str
+
+
+class DatePickerDialog:
+    def __init__(
+        self,
+        parent: tk.Tk | tk.Toplevel,
+        initial_date: dt.date,
+        font_family: str,
+    ) -> None:
+        self.parent = parent
+        self.initial_date = initial_date
+        self.font_family = font_family
+        self.today = dt.date.today()
+        self.selected_date: dt.date | None = None
+        self.view_year = initial_date.year
+        self.view_month = initial_date.month
+        self.month_var = tk.StringVar()
+
+        self.window = tk.Toplevel(parent)
+        self.window.title("날짜 선택")
+        self.window.configure(bg="#ECE7DD")
+        self.window.resizable(False, False)
+        self.window.transient(parent)
+        self.window.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.window.bind("<Escape>", lambda _event: self._cancel())
+
+        top_row = tk.Frame(self.window, bg="#ECE7DD")
+        top_row.pack(fill="x", padx=12, pady=(10, 6))
+
+        prev_btn = tk.Button(
+            top_row,
+            text="<",
+            command=lambda: self._move_month(-1),
+            font=self._font(10, "bold"),
+            bg="#F6EED3",
+            activebackground="#EEDFAF",
+            relief="groove",
+            padx=10,
+        )
+        prev_btn.pack(side="left")
+
+        month_label = tk.Label(
+            top_row,
+            textvariable=self.month_var,
+            font=self._font(11, "bold"),
+            bg="#ECE7DD",
+            fg="#3A312D",
+            width=16,
+        )
+        month_label.pack(side="left", expand=True)
+
+        next_btn = tk.Button(
+            top_row,
+            text=">",
+            command=lambda: self._move_month(1),
+            font=self._font(10, "bold"),
+            bg="#F6EED3",
+            activebackground="#EEDFAF",
+            relief="groove",
+            padx=10,
+        )
+        next_btn.pack(side="right")
+
+        self.grid_wrap = tk.Frame(self.window, bg="#ECE7DD")
+        self.grid_wrap.pack(fill="both", padx=12, pady=(2, 6))
+
+        bottom_row = tk.Frame(self.window, bg="#ECE7DD")
+        bottom_row.pack(fill="x", padx=12, pady=(0, 10))
+
+        today_btn = tk.Button(
+            bottom_row,
+            text="오늘 선택",
+            command=lambda: self._select(self.today),
+            font=self._font(9, "bold"),
+            bg="#E8F0D6",
+            activebackground="#D9E8BB",
+            relief="groove",
+            padx=10,
+        )
+        today_btn.pack(side="left")
+
+        cancel_btn = tk.Button(
+            bottom_row,
+            text="취소",
+            command=self._cancel,
+            font=self._font(9),
+            bg="#E7E3D7",
+            relief="groove",
+            padx=10,
+        )
+        cancel_btn.pack(side="right")
+
+        self._render_calendar()
+
+    def _font(self, size: int, weight: str = "normal") -> tuple[str, int, str]:
+        return (self.font_family, size, weight)
+
+    def _move_month(self, offset: int) -> None:
+        month_index = self.view_year * 12 + (self.view_month - 1) + offset
+        self.view_year, month_zero_based = divmod(month_index, 12)
+        self.view_month = month_zero_based + 1
+        self._render_calendar()
+
+    def _render_calendar(self) -> None:
+        for child in self.grid_wrap.winfo_children():
+            child.destroy()
+
+        self.month_var.set(f"{self.view_year}년 {self.view_month:02d}월")
+
+        for col, weekday in enumerate(WEEKDAY_KR):
+            fg = "#A64545" if col == 6 else "#4A3F36"
+            header = tk.Label(
+                self.grid_wrap,
+                text=weekday,
+                font=self._font(9, "bold"),
+                bg="#ECE7DD",
+                fg=fg,
+                width=4,
+            )
+            header.grid(row=0, column=col, padx=2, pady=(0, 4))
+
+        first_weekday, day_count = calendar.monthrange(self.view_year, self.view_month)
+        for day in range(1, day_count + 1):
+            date_value = dt.date(self.view_year, self.view_month, day)
+            index = first_weekday + (day - 1)
+            row = 1 + (index // 7)
+            col = index % 7
+
+            bg_color = "#FFF8DF"
+            if date_value == self.today:
+                bg_color = "#E8F0D6"
+            if date_value == self.initial_date:
+                bg_color = "#F6E7AC"
+
+            button = tk.Button(
+                self.grid_wrap,
+                text=str(day),
+                command=lambda d=date_value: self._select(d),
+                font=self._font(
+                    9, "bold" if date_value == self.initial_date else "normal"
+                ),
+                bg=bg_color,
+                activebackground="#EEDFAF",
+                relief="groove",
+                width=4,
+                padx=0,
+                pady=2,
+            )
+            button.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
+
+    def _select(self, picked_date: dt.date) -> None:
+        self.selected_date = picked_date
+        if self.window.winfo_exists():
+            self.window.destroy()
+
+    def _cancel(self) -> None:
+        self.selected_date = None
+        if self.window.winfo_exists():
+            self.window.destroy()
+
+    def show(self) -> dt.date | None:
+        self.window.update_idletasks()
+        parent_width = self.parent.winfo_width()
+        parent_height = self.parent.winfo_height()
+        parent_x = self.parent.winfo_rootx()
+        parent_y = self.parent.winfo_rooty()
+
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+        x = parent_x + max((parent_width - width) // 2, 0)
+        y = parent_y + max((parent_height - height) // 2, 0)
+        self.window.geometry(f"+{x}+{y}")
+
+        self.window.grab_set()
+        self.window.focus_set()
+        self.window.wait_window()
+        return self.selected_date
+
+
+def fetch_html_with_curl(
+    url: str,
+    timeout_seconds: int = 25,
+    method: str = "GET",
+    form_data: dict[str, str] | None = None,
+) -> str:
     cmd = [
         "curl",
         "-sL",
@@ -99,10 +293,41 @@ def fetch_html_with_curl(url: str, timeout_seconds: int = 25) -> str:
         "10",
         "--max-time",
         str(timeout_seconds),
-        url,
     ]
+
+    method_upper = method.upper()
+    if method_upper == "POST":
+        encoded_data = urllib.parse.urlencode(form_data or {})
+        cmd.extend(
+            [
+                "-X",
+                "POST",
+                "-H",
+                "Content-Type: application/x-www-form-urlencoded",
+                "--data",
+                encoded_data,
+            ]
+        )
+    elif method_upper != "GET":
+        raise RuntimeError(f"지원하지 않는 요청 방식입니다: {method}")
+
+    cmd.append(url)
+
     try:
-        completed = subprocess.run(cmd, capture_output=True, check=False)
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = int(getattr(subprocess, "SW_HIDE", 0))
+            creationflags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            completed = subprocess.run(
+                cmd,
+                capture_output=True,
+                check=False,
+                startupinfo=startupinfo,
+                creationflags=creationflags,
+            )
+        else:
+            completed = subprocess.run(cmd, capture_output=True, check=False)
     except FileNotFoundError as exc:
         raise RuntimeError(
             "curl 명령을 찾지 못했습니다. Windows 기본 curl이 필요합니다."
@@ -124,6 +349,11 @@ def clean_html_text(fragment: str) -> str:
     text = html.unescape(text)
     lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
     return "\n".join(line for line in lines if line)
+
+
+def format_korean_date(date_value: dt.date) -> str:
+    weekday = WEEKDAY_KR[date_value.weekday()]
+    return f"{date_value.strftime('%Y.%m.%d')} ( {weekday} )"
 
 
 def parse_menu_page(page_html: str) -> tuple[str, str, dict[str, DayMenu]]:
@@ -199,13 +429,6 @@ def parse_menu_page(page_html: str) -> tuple[str, str, dict[str, DayMenu]]:
     return title, period, days
 
 
-def pick_day_menu(days: dict[str, DayMenu]) -> DayMenu | None:
-    key = pick_day_key(days)
-    if not key:
-        return None
-    return days.get(key)
-
-
 def _parse_date_key(date_key: str) -> dt.date | None:
     try:
         return dt.datetime.strptime(date_key, "%Y.%m.%d").date()
@@ -213,26 +436,136 @@ def _parse_date_key(date_key: str) -> dt.date | None:
         return None
 
 
-def pick_day_key(days: dict[str, DayMenu]) -> str | None:
+def _parse_period_range(period: str) -> tuple[dt.date, dt.date] | None:
+    match = PERIOD_RE.search(period or "")
+    if not match:
+        return None
+
+    start_date = _parse_date_key(match.group(1))
+    end_date = _parse_date_key(match.group(2))
+    if not start_date or not end_date:
+        return None
+
+    if start_date <= end_date:
+        return start_date, end_date
+    return end_date, start_date
+
+
+def _parse_week_nav_form(page_html: str) -> WeekNavForm | None:
+    form_tag_match = re.search(
+        r'<form\b[^>]*id=["\']viewForm["\'][^>]*>', page_html, flags=re.IGNORECASE
+    )
+    if not form_tag_match:
+        return None
+
+    form_tag = form_tag_match.group(0)
+    action_match = re.search(
+        r'action=["\']([^"\']+)["\']', form_tag, flags=re.IGNORECASE
+    )
+    layout_match = re.search(
+        r'<input[^>]*name=["\']layout["\'][^>]*value=["\']([^"\']*)["\']',
+        page_html,
+        flags=re.IGNORECASE,
+    )
+    monday_match = re.search(
+        r'<input[^>]*name=["\']monday["\'][^>]*value=["\']([^"\']*)["\']',
+        page_html,
+        flags=re.IGNORECASE,
+    )
+
+    if not action_match or not layout_match or not monday_match:
+        return None
+
+    return WeekNavForm(
+        action=html.unescape(action_match.group(1)).strip(),
+        layout=html.unescape(layout_match.group(1)).strip(),
+        monday=html.unescape(monday_match.group(1)).strip(),
+    )
+
+
+def _resolve_html_for_target_date(
+    base_url: str,
+    initial_html: str,
+    target_date: dt.date,
+    timeout_seconds: int = 25,
+) -> str:
+    html_text = initial_html
+    seen_states: set[tuple[str, str, str]] = set()
+
+    for _ in range(MAX_WEEK_LOOKUP_STEPS + 1):
+        _title, period, days = parse_menu_page(html_text)
+        period_range = _parse_period_range(period)
+
+        if period_range:
+            period_start, period_end = period_range
+            if period_start <= target_date <= period_end:
+                return html_text
+            direction = "pre" if target_date < period_start else "next"
+        else:
+            parsed_dates = [
+                parsed
+                for parsed in (_parse_date_key(date_key) for date_key in days)
+                if parsed
+            ]
+            if not parsed_dates:
+                return html_text
+
+            min_date = min(parsed_dates)
+            max_date = max(parsed_dates)
+            if min_date <= target_date <= max_date:
+                return html_text
+
+            direction = "pre" if target_date < min_date else "next"
+
+        nav_form = _parse_week_nav_form(html_text)
+        if not nav_form:
+            return html_text
+
+        state_key = (nav_form.action, nav_form.monday, direction)
+        if state_key in seen_states:
+            return html_text
+        seen_states.add(state_key)
+
+        target_url = urllib.parse.urljoin(base_url, nav_form.action)
+        html_text = fetch_html_with_curl(
+            target_url,
+            timeout_seconds=timeout_seconds,
+            method="POST",
+            form_data={
+                "layout": nav_form.layout,
+                "monday": nav_form.monday,
+                "week": direction,
+            },
+        )
+
+    return html_text
+
+
+def pick_day_menu(
+    days: dict[str, DayMenu], target_date: dt.date | None = None
+) -> DayMenu | None:
+    key = pick_day_key(days, target_date=target_date)
+    if not key:
+        return None
+    return days.get(key)
+
+
+def pick_day_key(
+    days: dict[str, DayMenu], target_date: dt.date | None = None
+) -> str | None:
     if not days:
         return None
 
-    today = dt.date.today()
-    today_key = today.strftime("%Y.%m.%d")
-    if today_key in days:
-        return today_key
+    date_to_find = target_date or dt.date.today()
+    date_key = date_to_find.strftime("%Y.%m.%d")
+    if date_key in days:
+        return date_key
 
-    parsed_dates: list[tuple[dt.date, str]] = []
     for date_key in days:
-        parsed = _parse_date_key(date_key)
-        if parsed:
-            parsed_dates.append((parsed, date_key))
+        if _parse_date_key(date_key) == date_to_find:
+            return date_key
 
-    if not parsed_dates:
-        return sorted(days.keys())[0]
-
-    nearest_key = min(parsed_dates, key=lambda item: abs((item[0] - today).days))[1]
-    return nearest_key
+    return None
 
 
 def classify_meal_bucket(meal_type: str) -> str:
@@ -290,35 +623,6 @@ def bucket_has_real_items(entries: list[tuple[str, list[str]]]) -> bool:
             if line.strip():
                 return True
     return False
-
-
-def find_nearest_bucket_date(
-    grouped_by_date: dict[str, dict[str, list[tuple[str, list[str]]]]],
-    base_date_key: str,
-    bucket: str,
-) -> str | None:
-    base_date = _parse_date_key(base_date_key) or dt.date.today()
-    candidates: list[tuple[int, int, str]] = []
-
-    for date_key, grouped in grouped_by_date.items():
-        entries = grouped.get(bucket, [])
-        if not bucket_has_real_items(entries):
-            continue
-
-        parsed = _parse_date_key(date_key)
-        if not parsed:
-            continue
-
-        diff = (parsed - base_date).days
-        abs_diff = abs(diff)
-        prefer_future = 0 if diff >= 0 else 1
-        candidates.append((abs_diff, prefer_future, date_key))
-
-    if not candidates:
-        return None
-
-    candidates.sort()
-    return candidates[0][2]
 
 
 def format_meal_section(
@@ -392,10 +696,18 @@ def format_grouped_menu(
     return "\n".join(lines).strip()
 
 
-def fetch_cafeteria_note(cafeteria: dict[str, str]) -> dict[str, object]:
+def fetch_cafeteria_note(
+    cafeteria: dict[str, str], target_date: dt.date | None = None
+) -> dict[str, object]:
+    selected_date = target_date or dt.date.today()
+
     html_text = fetch_html_with_curl(cafeteria["url"])
+    html_text = _resolve_html_for_target_date(
+        cafeteria["url"], html_text, selected_date
+    )
+
     parsed_title, period, days = parse_menu_page(html_text)
-    target_key = pick_day_key(days)
+    target_key = pick_day_key(days, target_date=selected_date)
     target_day = days.get(target_key) if target_key else None
 
     grouped_by_date: dict[str, dict[str, list[tuple[str, list[str]]]]] = {}
@@ -413,26 +725,11 @@ def fetch_cafeteria_note(cafeteria: dict[str, str]) -> dict[str, object]:
 
     grouped = grouped_by_date.get(target_key or "", group_day_menu(target_day))
     grouped = {bucket: list(entries) for bucket, entries in grouped.items()}
-
-    fallback_messages: list[str] = []
-    if target_key:
-        for bucket in ("lunch", "dinner"):
-            entries = grouped.get(bucket, [])
-            if bucket_has_real_items(entries):
-                continue
-
-            nearest_key = find_nearest_bucket_date(grouped_by_date, target_key, bucket)
-            if not nearest_key:
-                continue
-            if nearest_key == target_key:
-                continue
-
-            grouped[bucket] = grouped_by_date[nearest_key].get(bucket, [])
-            fallback_messages.append(f"{SECTION_TITLES[bucket]} 대체: {nearest_key}")
-
-    date_label = target_day.label if target_day else "오늘 식단 정보 없음"
-    if fallback_messages:
-        date_label = f"{date_label}\n({' / '.join(fallback_messages)})"
+    date_label = (
+        target_day.label
+        if target_day
+        else f"{format_korean_date(selected_date)}\n선택한 날짜 식단 정보 없음"
+    )
 
     full_text = format_grouped_menu(grouped, compact=False)
     compact_text = format_grouped_menu(grouped, compact=True)
@@ -448,6 +745,7 @@ def fetch_cafeteria_note(cafeteria: dict[str, str]) -> dict[str, object]:
         "dinner_available_any_day": dinner_available_any_day,
         "source_title": parsed_title or cafeteria["name"],
         "url": cafeteria["url"],
+        "selected_date": selected_date.strftime("%Y.%m.%d"),
     }
 
 
@@ -469,7 +767,13 @@ class MealWidgetApp:
         self.normal_geometry = "1220x820"
         self.saved_window_geometry = ""
         self.is_refreshing = False
+        self.pending_refresh = False
         self.root.attributes("-topmost", self.is_topmost)
+
+        self.selected_date = dt.date.today()
+        self.selected_date_var = tk.StringVar(
+            value=format_korean_date(self.selected_date)
+        )
 
         self.last_update_var = tk.StringVar(value="업데이트 대기 중")
         self.status_var = tk.StringVar(value="")
@@ -595,6 +899,75 @@ class MealWidgetApp:
         )
         self.pip_btn.pack(side="left", padx=4)
 
+        date_row = tk.Frame(header, bg="#ECE7DD")
+        date_row.pack(fill="x", pady=(8, 0))
+
+        date_title = tk.Label(
+            date_row,
+            text="조회 날짜:",
+            font=self._font(10, "bold"),
+            bg="#ECE7DD",
+            fg="#3A312D",
+        )
+        date_title.pack(side="left", padx=(0, 8))
+
+        prev_date_btn = tk.Button(
+            date_row,
+            text="<",
+            command=lambda: self._shift_selected_date(-1),
+            font=self._font(10, "bold"),
+            bg="#F6EED3",
+            activebackground="#EEDFAF",
+            relief="groove",
+            padx=10,
+        )
+        prev_date_btn.pack(side="left", padx=(0, 4))
+
+        date_label_btn = tk.Button(
+            date_row,
+            textvariable=self.selected_date_var,
+            command=self._open_date_picker,
+            font=self._font(10, "bold"),
+            bg="#FFF8DF",
+            activebackground="#F6EECF",
+            relief="groove",
+            padx=12,
+        )
+        date_label_btn.pack(side="left", padx=2)
+
+        next_date_btn = tk.Button(
+            date_row,
+            text=">",
+            command=lambda: self._shift_selected_date(1),
+            font=self._font(10, "bold"),
+            bg="#F6EED3",
+            activebackground="#EEDFAF",
+            relief="groove",
+            padx=10,
+        )
+        next_date_btn.pack(side="left", padx=(4, 8))
+
+        today_btn = tk.Button(
+            date_row,
+            text="오늘",
+            command=self._reset_selected_date,
+            font=self._font(9, "bold"),
+            bg="#E8F0D6",
+            activebackground="#D9E8BB",
+            relief="groove",
+            padx=8,
+        )
+        today_btn.pack(side="left")
+
+        date_hint = tk.Label(
+            date_row,
+            text="모든 식당을 같은 날짜로 조회합니다.",
+            font=self._font(9),
+            bg="#ECE7DD",
+            fg="#6B5E57",
+        )
+        date_hint.pack(side="left", padx=(10, 0))
+
         filter_row = tk.Frame(header, bg="#ECE7DD")
         filter_row.pack(fill="x", pady=(8, 0))
 
@@ -622,6 +995,30 @@ class MealWidgetApp:
                 pady=0,
             )
             check.pack(side="left", padx=3)
+
+    def _set_selected_date(self, new_date: dt.date, force_refresh: bool = True) -> None:
+        if new_date == self.selected_date and not force_refresh:
+            return
+
+        self.selected_date = new_date
+        self.selected_date_var.set(format_korean_date(new_date))
+        if force_refresh:
+            self.refresh_data()
+
+    def _shift_selected_date(self, offset_days: int) -> None:
+        if offset_days == 0:
+            return
+        self._set_selected_date(self.selected_date + dt.timedelta(days=offset_days))
+
+    def _open_date_picker(self) -> None:
+        picker = DatePickerDialog(self.root, self.selected_date, self.font_family)
+        picked_date = picker.show()
+        if not picked_date:
+            return
+        self._set_selected_date(picked_date)
+
+    def _reset_selected_date(self) -> None:
+        self._set_selected_date(dt.date.today())
 
     def _build_cards(self) -> None:
         self.cards_frame = tk.Frame(self.root, bg="#ECE7DD")
@@ -1286,51 +1683,75 @@ class MealWidgetApp:
 
     def refresh_data(self) -> None:
         if self.is_refreshing:
+            self.pending_refresh = True
             return
 
+        target_date = self.selected_date
         self.is_refreshing = True
-        self.status_var.set("업데이트 중...")
+        self.pending_refresh = False
+        self.status_var.set(f"업데이트 중... ({format_korean_date(target_date)})")
 
-        thread = threading.Thread(target=self._refresh_worker, daemon=True)
+        thread = threading.Thread(
+            target=self._refresh_worker,
+            args=(target_date,),
+            daemon=True,
+        )
         thread.start()
 
-    def _refresh_worker(self) -> None:
+    def _refresh_worker(self, target_date: dt.date) -> None:
         notes: list[dict[str, object]] = []
         errors = 0
 
         for cafeteria in CAFETERIAS:
             try:
-                notes.append(fetch_cafeteria_note(cafeteria))
+                notes.append(fetch_cafeteria_note(cafeteria, target_date=target_date))
             except Exception as exc:  # noqa: BLE001
                 errors += 1
                 notes.append(
                     {
                         "title": cafeteria["name"],
-                        "date_label": "식단 로딩 실패",
+                        "date_label": f"{format_korean_date(target_date)}\n식단 로딩 실패",
                         "period": "-",
                         "full_text": "",
                         "compact_text": "",
                         "source_title": cafeteria["name"],
                         "url": cafeteria["url"],
                         "error": str(exc),
+                        "selected_date": target_date.strftime("%Y.%m.%d"),
                     }
                 )
 
-        self.root.after(0, lambda: self._apply_notes(notes, errors))
+        self.root.after(0, lambda: self._apply_notes(notes, errors, target_date))
 
-    def _apply_notes(self, notes: list[dict[str, object]], errors: int) -> None:
+    def _apply_notes(
+        self,
+        notes: list[dict[str, object]],
+        errors: int,
+        target_date: dt.date,
+    ) -> None:
+        if target_date != self.selected_date:
+            self.is_refreshing = False
+            self.pending_refresh = False
+            self.refresh_data()
+            return
+
         self.latest_notes = notes
         self._render_notes(notes)
 
         now_text = dt.datetime.now().strftime("최근 업데이트: %Y-%m-%d %H:%M")
         self.last_update_var.set(now_text)
 
+        status_suffix = f" ({format_korean_date(target_date)})"
         if errors:
-            self.status_var.set(f"완료 (일부 실패: {errors}개)")
+            self.status_var.set(f"완료 (일부 실패: {errors}개){status_suffix}")
         else:
-            self.status_var.set("완료 / PIP" if self.is_pip_mode else "완료")
+            base_status = "완료 / PIP" if self.is_pip_mode else "완료"
+            self.status_var.set(f"{base_status}{status_suffix}")
 
         self.is_refreshing = False
+        if self.pending_refresh:
+            self.pending_refresh = False
+            self.refresh_data()
 
     def _schedule_periodic_refresh(self) -> None:
         interval_ms = REFRESH_MINUTES * 60 * 1000
