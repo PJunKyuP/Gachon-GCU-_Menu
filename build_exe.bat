@@ -4,6 +4,9 @@ setlocal
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
+set "LOGO_PNG=assets\images\logo.png"
+set "LOGO_ICO=assets\images\logo.ico"
+
 where pyinstaller >nul 2>&1
 if errorlevel 1 (
     echo [1/3] Installing PyInstaller...
@@ -12,16 +15,16 @@ if errorlevel 1 (
 )
 
 set "PYI_ADD_DATA="
-if exist "logo.png" (
-    set "PYI_ADD_DATA=%PYI_ADD_DATA% --add-data logo.png;."
+if exist "%LOGO_PNG%" (
+    set "PYI_ADD_DATA=%PYI_ADD_DATA% --add-data %LOGO_PNG%;assets/images"
 )
-if exist "logo.ico" (
-    set "PYI_ADD_DATA=%PYI_ADD_DATA% --add-data logo.ico;."
+if exist "%LOGO_ICO%" (
+    set "PYI_ADD_DATA=%PYI_ADD_DATA% --add-data %LOGO_ICO%;assets/images"
 )
 
 set "PYI_ICON="
-if exist "logo.ico" (
-    set "PYI_ICON=--icon logo.ico"
+if exist "%LOGO_ICO%" (
+    set "PYI_ICON=--icon %LOGO_ICO%"
 )
 
 echo [2/3] Building executable...

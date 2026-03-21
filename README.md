@@ -2,7 +2,7 @@
 
 가천대학교 학생식당의 메뉴를 데스크톱 화면에서 빠르고 편리하게 확인할 수 있는 Windows 데스크톱 애플리케이션입니다. 번거롭게 매번 웹사이트를 접속할 필요 없이, 위젯 하나로 그날의 식단을 미리 확인하세요.
 
-![실행 화면](screenshot.png)
+![실행 화면](assets/images/screenshot.png)
 
 ## 📌 주요 기능 및 특징
 
@@ -51,7 +51,6 @@
 ```bash
 python gachon_meal_widget.py
 ```
-> 폴더 내에 있는 **`run_widget.bat`** 파일을 실행해도 동일하게 Python 스크립트가 실행됩니다.
 
 ---
 
@@ -69,9 +68,9 @@ python gachon_meal_widget.py
 - `gachon_meal_widget.py`: 위젯의 핵심 로직 및 UI가 포함된 1코어 소스
 - `install_app.bat` / `uninstall_app.bat`: 사용자를 위한 원클릭 설치·제거 스크립트
 - `build_exe.bat`: PyInstaller 패키징 스크립트 (가상환경 없이 배포판 생성 목적)
-- `run_widget.bat`: 파이썬 실행 도우미 스크립트
-- `taskbar_setup.bat` / `pin_taskbar.ps1`: Windows 작업표시줄 고정을 위한 파워쉘 연동 유틸리티
-- `logo.png` / `logo.ico`: 프로그램 고유 아이콘 및 브랜딩 에셋
+- `pin_taskbar.ps1`: Windows 작업표시줄 고정을 위한 PowerShell 유틸리티
+- `assets/images/logo.png` / `assets/images/logo.ico`: 프로그램 아이콘 리소스
+- `assets/images/screenshot.png`: README 실행 화면 이미지
 
 ---
 

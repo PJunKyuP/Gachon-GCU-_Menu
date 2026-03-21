@@ -494,14 +494,14 @@ class MealWidgetApp:
         return (self.font_family, size, weight)
 
     def _apply_app_icon(self) -> None:
-        icon_ico_path = get_resource_path("logo.ico")
+        icon_ico_path = get_resource_path("assets/images/logo.ico")
         if Path(icon_ico_path).exists():
             try:
                 self.root.iconbitmap(icon_ico_path)
             except tk.TclError:
                 pass
 
-        icon_png_path = get_resource_path("logo.png")
+        icon_png_path = get_resource_path("assets/images/logo.png")
         if not Path(icon_png_path).exists():
             return
 
