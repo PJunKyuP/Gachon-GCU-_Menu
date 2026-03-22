@@ -1,3 +1,4 @@
+import customtkinter as ctk
 import calendar
 import datetime as dt
 import html
@@ -59,7 +60,12 @@ FONT_CANDIDATES = (
     "맑은 고딕",
     "Segoe UI",
 )
-WINDOWS_APP_USER_MODEL_ID = "kr.gachon.mealwidget"
+WINDOWS_APP_USER_MODEL_ID = "kr.gachon.menu"
+APP_ICON_ICO_CANDIDATES = ("assets/images/black_logo.ico",)
+APP_ICON_PNG_CANDIDATES = (
+    "assets/images/black_logo.png",
+    "black_logo.png",
+)
 
 
 def get_resource_path(file_name: str) -> str:
@@ -101,183 +107,6 @@ class WeekNavForm:
     action: str
     layout: str
     monday: str
-
-
-class DatePickerDialog:
-    def __init__(
-        self,
-        parent: tk.Tk | tk.Toplevel,
-        initial_date: dt.date,
-        font_family: str,
-    ) -> None:
-        self.parent = parent
-        self.initial_date = initial_date
-        self.font_family = font_family
-        self.today = dt.date.today()
-        self.selected_date: dt.date | None = None
-        self.view_year = initial_date.year
-        self.view_month = initial_date.month
-        self.month_var = tk.StringVar()
-
-        self.window = tk.Toplevel(parent)
-        self.window.title("날짜 선택")
-        self.window.configure(bg="#ECE7DD")
-        self.window.resizable(False, False)
-        self.window.transient(parent)
-        self.window.protocol("WM_DELETE_WINDOW", self._cancel)
-        self.window.bind("<Escape>", lambda _event: self._cancel())
-
-        top_row = tk.Frame(self.window, bg="#ECE7DD")
-        top_row.pack(fill="x", padx=12, pady=(10, 6))
-
-        prev_btn = tk.Button(
-            top_row,
-            text="<",
-            command=lambda: self._move_month(-1),
-            font=self._font(10, "bold"),
-            bg="#F6EED3",
-            activebackground="#EEDFAF",
-            relief="groove",
-            padx=10,
-        )
-        prev_btn.pack(side="left")
-
-        month_label = tk.Label(
-            top_row,
-            textvariable=self.month_var,
-            font=self._font(11, "bold"),
-            bg="#ECE7DD",
-            fg="#3A312D",
-            width=16,
-        )
-        month_label.pack(side="left", expand=True)
-
-        next_btn = tk.Button(
-            top_row,
-            text=">",
-            command=lambda: self._move_month(1),
-            font=self._font(10, "bold"),
-            bg="#F6EED3",
-            activebackground="#EEDFAF",
-            relief="groove",
-            padx=10,
-        )
-        next_btn.pack(side="right")
-
-        self.grid_wrap = tk.Frame(self.window, bg="#ECE7DD")
-        self.grid_wrap.pack(fill="both", padx=12, pady=(2, 6))
-
-        bottom_row = tk.Frame(self.window, bg="#ECE7DD")
-        bottom_row.pack(fill="x", padx=12, pady=(0, 10))
-
-        today_btn = tk.Button(
-            bottom_row,
-            text="오늘 선택",
-            command=lambda: self._select(self.today),
-            font=self._font(9, "bold"),
-            bg="#E8F0D6",
-            activebackground="#D9E8BB",
-            relief="groove",
-            padx=10,
-        )
-        today_btn.pack(side="left")
-
-        cancel_btn = tk.Button(
-            bottom_row,
-            text="취소",
-            command=self._cancel,
-            font=self._font(9),
-            bg="#E7E3D7",
-            relief="groove",
-            padx=10,
-        )
-        cancel_btn.pack(side="right")
-
-        self._render_calendar()
-
-    def _font(self, size: int, weight: str = "normal") -> tuple[str, int, str]:
-        return (self.font_family, size, weight)
-
-    def _move_month(self, offset: int) -> None:
-        month_index = self.view_year * 12 + (self.view_month - 1) + offset
-        self.view_year, month_zero_based = divmod(month_index, 12)
-        self.view_month = month_zero_based + 1
-        self._render_calendar()
-
-    def _render_calendar(self) -> None:
-        for child in self.grid_wrap.winfo_children():
-            child.destroy()
-
-        self.month_var.set(f"{self.view_year}년 {self.view_month:02d}월")
-
-        for col, weekday in enumerate(WEEKDAY_KR):
-            fg = "#A64545" if col == 6 else "#4A3F36"
-            header = tk.Label(
-                self.grid_wrap,
-                text=weekday,
-                font=self._font(9, "bold"),
-                bg="#ECE7DD",
-                fg=fg,
-                width=4,
-            )
-            header.grid(row=0, column=col, padx=2, pady=(0, 4))
-
-        first_weekday, day_count = calendar.monthrange(self.view_year, self.view_month)
-        for day in range(1, day_count + 1):
-            date_value = dt.date(self.view_year, self.view_month, day)
-            index = first_weekday + (day - 1)
-            row = 1 + (index // 7)
-            col = index % 7
-
-            bg_color = "#FFF8DF"
-            if date_value == self.today:
-                bg_color = "#E8F0D6"
-            if date_value == self.initial_date:
-                bg_color = "#F6E7AC"
-
-            button = tk.Button(
-                self.grid_wrap,
-                text=str(day),
-                command=lambda d=date_value: self._select(d),
-                font=self._font(
-                    9, "bold" if date_value == self.initial_date else "normal"
-                ),
-                bg=bg_color,
-                activebackground="#EEDFAF",
-                relief="groove",
-                width=4,
-                padx=0,
-                pady=2,
-            )
-            button.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
-
-    def _select(self, picked_date: dt.date) -> None:
-        self.selected_date = picked_date
-        if self.window.winfo_exists():
-            self.window.destroy()
-
-    def _cancel(self) -> None:
-        self.selected_date = None
-        if self.window.winfo_exists():
-            self.window.destroy()
-
-    def show(self) -> dt.date | None:
-        self.window.update_idletasks()
-        parent_width = self.parent.winfo_width()
-        parent_height = self.parent.winfo_height()
-        parent_x = self.parent.winfo_rootx()
-        parent_y = self.parent.winfo_rooty()
-
-        width = self.window.winfo_width()
-        height = self.window.winfo_height()
-        x = parent_x + max((parent_width - width) // 2, 0)
-        y = parent_y + max((parent_height - height) // 2, 0)
-        self.window.geometry(f"+{x}+{y}")
-
-        self.window.grab_set()
-        self.window.focus_set()
-        self.window.wait_window()
-        return self.selected_date
 
 
 def fetch_html_with_curl(
@@ -749,23 +578,215 @@ def fetch_cafeteria_note(
     }
 
 
+class DatePickerDialog:
+    def __init__(self, parent, initial_date: dt.date, font_family: str) -> None:
+        self.parent = parent
+        self.initial_date = initial_date
+        self.font_family = font_family
+        self.today = dt.date.today()
+        self.selected_date = None
+        self.view_year = initial_date.year
+        self.view_month = initial_date.month
+        self.month_var = tk.StringVar()
+
+        self.window = ctk.CTkToplevel(parent)
+        self.window.title("날짜 선택")
+        self.window.geometry("340x380")
+        self.window.resizable(False, False)
+        self.window.transient(parent)
+        self.window.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.window.bind("<Escape>", lambda _e: self._cancel())
+
+        top_row = ctk.CTkFrame(self.window, fg_color="transparent")
+        top_row.pack(fill="x", padx=15, pady=(20, 10))
+
+        prev_btn = ctk.CTkButton(
+            top_row,
+            text="<",
+            command=lambda: self._move_month(-1),
+            width=40,
+            height=35,
+            corner_radius=8,
+            font=(self.font_family, 14, "bold"),
+        )
+        prev_btn.pack(side="left")
+
+        month_label = ctk.CTkLabel(
+            top_row, textvariable=self.month_var, font=(self.font_family, 16, "bold")
+        )
+        month_label.pack(side="left", expand=True)
+
+        next_btn = ctk.CTkButton(
+            top_row,
+            text=">",
+            command=lambda: self._move_month(1),
+            width=40,
+            height=35,
+            corner_radius=8,
+            font=(self.font_family, 14, "bold"),
+        )
+        next_btn.pack(side="right")
+
+        self.grid_wrap = ctk.CTkFrame(self.window, fg_color="transparent")
+        self.grid_wrap.pack(fill="both", padx=15, pady=5)
+
+        bottom_row = ctk.CTkFrame(self.window, fg_color="transparent")
+        bottom_row.pack(fill="x", padx=15, pady=(10, 20))
+
+        today_btn = ctk.CTkButton(
+            bottom_row,
+            text="오늘 선택",
+            command=lambda: self._select(self.today),
+            width=100,
+            corner_radius=8,
+            font=(self.font_family, 13, "bold"),
+            fg_color="#27AE60",
+            hover_color="#229954",
+        )
+        today_btn.pack(side="left")
+
+        cancel_btn = ctk.CTkButton(
+            bottom_row,
+            text="취소",
+            command=self._cancel,
+            width=70,
+            corner_radius=8,
+            font=(self.font_family, 13),
+            fg_color="#7F8C8D",
+            hover_color="#616A6B",
+        )
+        cancel_btn.pack(side="right")
+
+        self._render_calendar()
+
+    def _move_month(self, offset: int) -> None:
+        month_index = self.view_year * 12 + (self.view_month - 1) + offset
+        self.view_year, month_zero_based = divmod(month_index, 12)
+        self.view_month = month_zero_based + 1
+        self._render_calendar()
+
+    def _render_calendar(self) -> None:
+        for child in self.grid_wrap.winfo_children():
+            child.destroy()
+        self.month_var.set(f"{self.view_year}년 {self.view_month:02d}월")
+        WEEKDAY_KR = ("월", "화", "수", "목", "금", "토", "일")
+        weekday_text_color = ("#000000", "#000000")
+        saturday_text_color = ("#1E6FD1", "#1E6FD1")
+        sunday_text_color = ("#D93025", "#D93025")
+        for col, weekday in enumerate(WEEKDAY_KR):
+            tc = (
+                sunday_text_color
+                if col == 6
+                else (saturday_text_color if col == 5 else weekday_text_color)
+            )
+            lbl = ctk.CTkLabel(
+                self.grid_wrap,
+                text=weekday,
+                font=(self.font_family, 13, "bold"),
+                text_color=tc,
+                width=42,
+            )
+            lbl.grid(row=0, column=col, padx=1, pady=(0, 10))
+
+        first_wd, days = calendar.monthrange(self.view_year, self.view_month)
+        for day in range(1, days + 1):
+            d_val = dt.date(self.view_year, self.view_month, day)
+            idx = first_wd + (day - 1)
+            row = 1 + (idx // 7)
+            col = idx % 7
+
+            btn_color = (
+                ("#3B8ED0", "#1F6AA5")
+                if d_val == self.initial_date
+                else (
+                    ("#27AE60", "#229954")
+                    if d_val == self.today
+                    else ("#F7F7F7", "#F7F7F7")
+                )
+            )
+            tx_color = (
+                ("#FFFFFF", "#FFFFFF")
+                if (d_val == self.initial_date or d_val == self.today)
+                else (
+                    sunday_text_color
+                    if col == 6
+                    else (saturday_text_color if col == 5 else weekday_text_color)
+                )
+            )
+            hv_color = (
+                "#1F6AA5"
+                if d_val == self.initial_date
+                else ("#229954" if d_val == self.today else "#E3E3E3")
+            )
+
+            b = ctk.CTkButton(
+                self.grid_wrap,
+                text=str(day),
+                command=lambda d=d_val: self._select(d),
+                font=(
+                    self.font_family,
+                    13,
+                    "bold" if d_val == self.initial_date else "normal",
+                ),
+                width=42,
+                height=38,
+                corner_radius=8,
+                fg_color=btn_color,
+                text_color=tx_color,
+                text_color_disabled=tx_color,
+                hover_color=hv_color,
+                border_width=1
+                if (d_val != self.initial_date and d_val != self.today)
+                else 0,
+                border_color=("#D5D5D5", "#D5D5D5"),
+                state="normal",
+            )
+            if d_val != self.initial_date and d_val != self.today:
+                b.configure(font=(self.font_family, 13, "bold"))
+            b.grid(row=row, column=col, padx=1, pady=1)
+
+    def _select(self, picked: dt.date) -> None:
+        self.selected_date = picked
+        if self.window.winfo_exists():
+            self.window.destroy()
+
+    def _cancel(self) -> None:
+        self.selected_date = None
+        if self.window.winfo_exists():
+            self.window.destroy()
+
+    def show(self) -> dt.date | None:
+        self.window.update_idletasks()
+        pw = self.parent.winfo_width()
+        ph = self.parent.winfo_height()
+        px = self.parent.winfo_rootx()
+        py = self.parent.winfo_rooty()
+        w = self.window.winfo_width()
+        h = self.window.winfo_height()
+        self.window.geometry(
+            f"+{px + max((pw - w) // 2, 0)}+{py + max((ph - h) // 2, 0)}"
+        )
+        self.window.grab_set()
+        self.window.focus_set()
+        self.window.wait_window()
+        return self.selected_date
+
+
 class MealWidgetApp:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: ctk.CTk) -> None:
         self.root = root
         self.root.title("가천대학교 학식 메뉴")
-        self.root.geometry("1220x820")
-        self.root.minsize(920, 620)
-        self.root.configure(bg="#ECE7DD")
-
+        self.root.geometry("1400x900")
+        self.root.minsize(1050, 700)
         self.font_family = resolve_font_family(self.root)
-        self.icon_image: tk.PhotoImage | None = None
+        self.icon_image = None
         self._apply_app_icon()
 
-        self.is_topmost = True
+        self.is_topmost = False
         self.was_topmost_before_pip = self.is_topmost
         self.is_pip_mode = False
-        self.normal_geometry = "1220x820"
-        self.saved_window_geometry = ""
+        self.normal_geometry = "1400x900"
+        self.saved_geometry = ""
         self.is_refreshing = False
         self.pending_refresh = False
         self.root.attributes("-topmost", self.is_topmost)
@@ -774,23 +795,18 @@ class MealWidgetApp:
         self.selected_date_var = tk.StringVar(
             value=format_korean_date(self.selected_date)
         )
-
         self.last_update_var = tk.StringVar(value="업데이트 대기 중")
         self.status_var = tk.StringVar(value="")
 
-        self.cafe_visibility_vars: list[tk.BooleanVar] = [
-            tk.BooleanVar(value=True) for _ in CAFETERIAS
-        ]
-        self.cards: list[dict[str, object]] = []
-        self.latest_notes: list[dict[str, object]] = []
-        self.cards_frame: tk.Frame | None = None
-        self.empty_cards_label: tk.Label | None = None
-        self.pip_windows: list[dict[str, object]] = []
+        self.cafe_visibility_vars = [tk.BooleanVar(value=True) for _ in CAFETERIAS]
+        self.cards = []
+        self.latest_notes = []
+        self.pip_windows = []
 
         self._build_header()
         self._build_cards()
 
-        self.root.bind("<F5>", lambda _event: self.refresh_data())
+        self.root.bind("<F5>", lambda e: self.refresh_data())
         self.refresh_data()
         self._schedule_periodic_refresh()
 
@@ -798,208 +814,206 @@ class MealWidgetApp:
         return (self.font_family, size, weight)
 
     def _apply_app_icon(self) -> None:
-        icon_ico_path = get_resource_path("assets/images/logo.ico")
-        if Path(icon_ico_path).exists():
+        icon_ico = ""
+        for candidate in APP_ICON_ICO_CANDIDATES:
+            candidate_path = Path(get_resource_path(candidate))
+            if candidate_path.exists():
+                icon_ico = str(candidate_path)
+                break
+        if icon_ico:
             try:
-                self.root.iconbitmap(icon_ico_path)
+                self.root.iconbitmap(icon_ico)
             except tk.TclError:
                 pass
 
-        icon_png_path = get_resource_path("assets/images/logo.png")
-        if not Path(icon_png_path).exists():
+        icon_png = ""
+        for candidate in APP_ICON_PNG_CANDIDATES:
+            candidate_path = Path(get_resource_path(candidate))
+            if candidate_path.exists():
+                icon_png = str(candidate_path)
+                break
+        if not icon_png:
             return
-
         try:
-            self.icon_image = tk.PhotoImage(file=icon_png_path)
-        except tk.TclError:
-            self.icon_image = None
-            return
+            from PIL import Image, ImageTk
 
-        self.root.iconphoto(True, self.icon_image)
+            self.icon_image = ImageTk.PhotoImage(Image.open(icon_png))
+            self.root.iconphoto(True, self.icon_image)
+        except Exception:
+            pass
 
     def _build_header(self) -> None:
-        header = tk.Frame(self.root, bg="#ECE7DD")
-        header.pack(fill="x", padx=14, pady=(12, 4))
+        header = ctk.CTkFrame(self.root, fg_color="transparent")
+        header.pack(fill="x", padx=30, pady=(25, 10))
 
-        top_row = tk.Frame(header, bg="#ECE7DD")
+        top_row = ctk.CTkFrame(header, fg_color="transparent")
         top_row.pack(fill="x")
 
-        title = tk.Label(
+        title = ctk.CTkLabel(
             top_row,
             text="가천대학교 학식 메뉴",
-            font=self._font(20, "bold"),
-            bg="#ECE7DD",
-            fg="#2E2A26",
+            font=self._font(28, "bold"),
+            text_color=["#1C2833", "#FDFEFE"],
         )
         title.pack(side="left")
 
-        status = tk.Label(
+        status = ctk.CTkLabel(
             top_row,
             textvariable=self.status_var,
-            font=self._font(10),
-            bg="#ECE7DD",
-            fg="#6B5E57",
+            font=self._font(13),
+            text_color=["#7F8C8D", "#BDC3C7"],
         )
-        status.pack(side="left", padx=(12, 0))
+        status.pack(side="left", padx=(15, 0))
 
-        right_wrap = tk.Frame(top_row, bg="#ECE7DD")
+        right_wrap = ctk.CTkFrame(top_row, fg_color="transparent")
         right_wrap.pack(side="right")
 
-        updated = tk.Label(
+        updated = ctk.CTkLabel(
             right_wrap,
             textvariable=self.last_update_var,
-            font=self._font(10),
-            bg="#ECE7DD",
-            fg="#5B504A",
+            font=self._font(13),
+            text_color=["#7F8C8D", "#BDC3C7"],
         )
-        updated.pack(side="left", padx=(0, 10))
+        updated.pack(side="left", padx=(0, 15))
 
-        source_btn = tk.Button(
+        src_btn = ctk.CTkButton(
             right_wrap,
             text="원본 보기",
             command=self.open_source_pages,
-            font=self._font(10),
-            bg="#FDF8E5",
-            relief="groove",
-            padx=8,
+            font=self._font(13, "bold"),
+            corner_radius=12,
+            width=80,
+            fg_color="#F1C40F",
+            text_color="#1C2833",
+            hover_color="#D4AC0D",
         )
-        source_btn.pack(side="left", padx=4)
+        src_btn.pack(side="left", padx=5)
 
-        refresh_btn = tk.Button(
+        ref_btn = ctk.CTkButton(
             right_wrap,
             text="새로고침",
             command=self.refresh_data,
-            font=self._font(10, "bold"),
-            bg="#FAF3D2",
-            activebackground="#F6E7AC",
-            relief="groove",
-            padx=10,
+            font=self._font(13, "bold"),
+            corner_radius=12,
+            width=80,
         )
-        refresh_btn.pack(side="left", padx=4)
+        ref_btn.pack(side="left", padx=5)
 
-        self.topmost_btn = tk.Button(
+        self.topmost_btn = ctk.CTkButton(
             right_wrap,
-            text="항상 위: ON",
+            text="항상 위: OFF",
             command=self.toggle_topmost,
-            font=self._font(10),
-            bg="#E7E3D7",
-            relief="groove",
-            padx=8,
+            font=self._font(13),
+            corner_radius=12,
+            width=100,
+            fg_color="#EAECEE",
+            text_color="#1C2833",
+            hover_color="#D5DBDB",
         )
-        self.topmost_btn.pack(side="left", padx=4)
+        self.topmost_btn.pack(side="left", padx=5)
+        self._sync_topmost_button_style()
 
-        self.pip_btn = tk.Button(
+        self.pip_btn = ctk.CTkButton(
             right_wrap,
             text="PIP 모드: OFF",
             command=self.toggle_pip_mode,
-            font=self._font(10),
-            bg="#E1E7F2",
-            relief="groove",
-            padx=8,
+            font=self._font(13),
+            corner_radius=12,
+            width=100,
+            fg_color="#34495E",
+            hover_color="#2C3E50",
         )
-        self.pip_btn.pack(side="left", padx=4)
+        self.pip_btn.pack(side="left", padx=5)
 
-        date_row = tk.Frame(header, bg="#ECE7DD")
-        date_row.pack(fill="x", pady=(8, 0))
+        date_row = ctk.CTkFrame(header, fg_color="transparent")
+        date_row.pack(fill="x", pady=(15, 0))
 
-        date_title = tk.Label(
-            date_row,
-            text="조회 날짜:",
-            font=self._font(10, "bold"),
-            bg="#ECE7DD",
-            fg="#3A312D",
+        date_title = ctk.CTkLabel(
+            date_row, text="조회 날짜:", font=self._font(15, "bold")
         )
-        date_title.pack(side="left", padx=(0, 8))
+        date_title.pack(side="left", padx=(0, 10))
 
-        prev_date_btn = tk.Button(
+        prev_d = ctk.CTkButton(
             date_row,
             text="<",
             command=lambda: self._shift_selected_date(-1),
-            font=self._font(10, "bold"),
-            bg="#F6EED3",
-            activebackground="#EEDFAF",
-            relief="groove",
-            padx=10,
+            font=self._font(14, "bold"),
+            corner_radius=10,
+            width=40,
+            fg_color=["#E5E7E9", "#424949"],
+            text_color=["#2C3E50", "#ECF0F1"],
+            hover_color=["#D5D8DC", "#212F3C"],
         )
-        prev_date_btn.pack(side="left", padx=(0, 4))
+        prev_d.pack(side="left", padx=(0, 5))
 
-        date_label_btn = tk.Button(
+        dl_btn = ctk.CTkButton(
             date_row,
             textvariable=self.selected_date_var,
             command=self._open_date_picker,
-            font=self._font(10, "bold"),
-            bg="#FFF8DF",
-            activebackground="#F6EECF",
-            relief="groove",
-            padx=12,
+            font=self._font(14, "bold"),
+            corner_radius=10,
+            width=150,
+            fg_color=["#D4E6F1", "#1A5276"],
+            text_color=["#154360", "#EAF2F8"],
+            hover_color=["#A9CCE3", "#154360"],
         )
-        date_label_btn.pack(side="left", padx=2)
+        dl_btn.pack(side="left", padx=5)
 
-        next_date_btn = tk.Button(
+        next_d = ctk.CTkButton(
             date_row,
             text=">",
             command=lambda: self._shift_selected_date(1),
-            font=self._font(10, "bold"),
-            bg="#F6EED3",
-            activebackground="#EEDFAF",
-            relief="groove",
-            padx=10,
+            font=self._font(14, "bold"),
+            corner_radius=10,
+            width=40,
+            fg_color=["#E5E7E9", "#424949"],
+            text_color=["#2C3E50", "#ECF0F1"],
+            hover_color=["#D5D8DC", "#212F3C"],
         )
-        next_date_btn.pack(side="left", padx=(4, 8))
+        next_d.pack(side="left", padx=(5, 15))
 
-        today_btn = tk.Button(
+        today_btn = ctk.CTkButton(
             date_row,
             text="오늘",
             command=self._reset_selected_date,
-            font=self._font(9, "bold"),
-            bg="#E8F0D6",
-            activebackground="#D9E8BB",
-            relief="groove",
-            padx=8,
+            font=self._font(13, "bold"),
+            corner_radius=10,
+            width=60,
+            fg_color="#2ECC71",
+            hover_color="#27AE60",
         )
         today_btn.pack(side="left")
 
-        date_hint = tk.Label(
+        hint = ctk.CTkLabel(
             date_row,
             text="모든 식당을 같은 날짜로 조회합니다.",
-            font=self._font(9),
-            bg="#ECE7DD",
-            fg="#6B5E57",
+            font=self._font(12),
+            text_color=["#7F8C8D", "#95A5A6"],
         )
-        date_hint.pack(side="left", padx=(10, 0))
+        hint.pack(side="left", padx=(15, 0))
 
-        filter_row = tk.Frame(header, bg="#ECE7DD")
-        filter_row.pack(fill="x", pady=(8, 0))
-
-        filter_title = tk.Label(
-            filter_row,
-            text="표시 식당:",
-            font=self._font(10, "bold"),
-            bg="#ECE7DD",
-            fg="#3A312D",
+        filter_row = ctk.CTkFrame(header, fg_color="transparent")
+        filter_row.pack(fill="x", pady=(15, 0))
+        filter_title = ctk.CTkLabel(
+            filter_row, text="표시 식당:", font=self._font(15, "bold")
         )
-        filter_title.pack(side="left", padx=(0, 8))
+        filter_title.pack(side="left", padx=(0, 10))
 
-        for index, cafeteria in enumerate(CAFETERIAS):
-            check = tk.Checkbutton(
+        for idx, cafeteria in enumerate(CAFETERIAS):
+            chk = ctk.CTkCheckBox(
                 filter_row,
                 text=cafeteria["name"],
-                variable=self.cafe_visibility_vars[index],
+                variable=self.cafe_visibility_vars[idx],
                 command=self._on_toggle_cafeteria,
-                font=self._font(9),
-                bg="#ECE7DD",
-                fg="#3A312D",
-                activebackground="#ECE7DD",
-                selectcolor="#FFF6CC",
-                padx=4,
-                pady=0,
+                font=self._font(13),
+                corner_radius=6,
+                border_width=2,
             )
-            check.pack(side="left", padx=3)
+            chk.pack(side="left", padx=8)
 
     def _set_selected_date(self, new_date: dt.date, force_refresh: bool = True) -> None:
         if new_date == self.selected_date and not force_refresh:
             return
-
         self.selected_date = new_date
         self.selected_date_var.set(format_korean_date(new_date))
         if force_refresh:
@@ -1012,184 +1026,135 @@ class MealWidgetApp:
 
     def _open_date_picker(self) -> None:
         picker = DatePickerDialog(self.root, self.selected_date, self.font_family)
-        picked_date = picker.show()
-        if not picked_date:
-            return
-        self._set_selected_date(picked_date)
+        picked = picker.show()
+        if picked:
+            self._set_selected_date(picked)
 
     def _reset_selected_date(self) -> None:
         self._set_selected_date(dt.date.today())
 
     def _build_cards(self) -> None:
-        self.cards_frame = tk.Frame(self.root, bg="#ECE7DD")
-        self.cards_frame.pack(fill="both", expand=True, padx=10, pady=(6, 12))
+        self.cards_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.cards_frame.pack(fill="both", expand=True, padx=25, pady=(10, 25))
 
-        for index, cafeteria in enumerate(CAFETERIAS):
-            card_color = CARD_COLORS[index % len(CARD_COLORS)]
-            card = tk.Frame(
-                self.cards_frame,
-                bg=card_color,
-                bd=1,
-                relief="solid",
-                highlightthickness=1,
+        CARD_BG_COLORS = [
+            ["#FDF2E9", "#6E2C00"],
+            ["#E8F8F5", "#0E6251"],
+            ["#EBF5FB", "#154360"],
+            ["#F4ECF7", "#512E5F"],
+        ]
+
+        for idx, cafeteria in enumerate(CAFETERIAS):
+            c_color = CARD_BG_COLORS[idx % len(CARD_BG_COLORS)]
+            card = ctk.CTkFrame(self.cards_frame, corner_radius=20, fg_color=c_color)
+
+            top_bar = ctk.CTkFrame(
+                card, corner_radius=10, fg_color=["#FAD7A1", "#935116"], height=10
             )
+            top_bar.pack(fill="x", padx=100, pady=(15, 5))
 
-            tape = tk.Frame(card, bg="#FFF7CC", height=12)
-            tape.pack(fill="x", padx=80, pady=(8, 4))
+            t_c = ["#17202A", "#FDFEFE"]
+            s_c = ["#566573", "#B3B6B7"]
 
             title_var = tk.StringVar(value=cafeteria["name"])
-            subtitle_var = tk.StringVar(value="데이터 불러오는 중...")
+            sub_var = tk.StringVar(value="데이터 불러오는 중...")
 
-            title_label = tk.Label(
+            title_lbl = ctk.CTkLabel(
                 card,
                 textvariable=title_var,
-                font=self._font(15, "bold"),
-                bg=card_color,
-                fg="#3A312D",
-                anchor="w",
+                font=self._font(20, "bold"),
+                text_color=t_c,
             )
-            title_label.pack(fill="x", padx=12)
+            title_lbl.pack(fill="x", padx=20, anchor="w")
 
-            subtitle_label = tk.Label(
+            sub_lbl = ctk.CTkLabel(
                 card,
-                textvariable=subtitle_var,
-                font=self._font(10),
-                bg=card_color,
-                fg="#66564D",
+                textvariable=sub_var,
+                font=self._font(13),
+                text_color=s_c,
                 justify="left",
-                anchor="w",
             )
-            subtitle_label.pack(fill="x", padx=12, pady=(2, 4))
+            # Removed sub_lbl packing according to user request
 
-            table_wrap = tk.Frame(
-                card,
-                bg="#FFFDF7",
-                bd=1,
-                relief="solid",
-                highlightthickness=1,
-                highlightbackground="#CDBFA8",
+            # Content Wrap inside card
+            wrap = ctk.CTkFrame(card, corner_radius=12, fg_color=["#FFFFFF", "#2C3E50"])
+            wrap.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+            header_f = ctk.CTkFrame(
+                wrap, corner_radius=12, fg_color=["#F2F4F4", "#212F3C"], height=38
             )
-            table_wrap.pack(fill="both", expand=True, padx=10, pady=(0, 6))
+            header_f.pack(fill="x", padx=5, pady=5)
+            header_f.pack_propagate(False)
 
-            table_head = tk.Frame(table_wrap, bg="#F1E3CA", height=30)
-            table_head.pack(fill="x")
-            table_head.pack_propagate(False)
-
-            lunch_head_label = tk.Label(
-                table_head,
-                text="점심",
-                font=self._font(11, "bold"),
-                bg="#F1E3CA",
-                fg="#4A3F36",
-                anchor="center",
+            l_lbl = ctk.CTkLabel(
+                header_f, text="점심", font=self._font(15, "bold"), text_color=t_c
             )
-            lunch_head_label.pack(side="left", fill="x", expand=True)
+            l_lbl.pack(side="left", fill="x", expand=True)
 
-            head_divider = tk.Frame(table_head, bg="#CDBFA8", width=1)
-            head_divider.pack(side="left", fill="y")
-
-            dinner_head_label = tk.Label(
-                table_head,
-                text="저녁",
-                font=self._font(11, "bold"),
-                bg="#F1E3CA",
-                fg="#4A3F36",
-                anchor="center",
+            d_lbl = ctk.CTkLabel(
+                header_f, text="저녁", font=self._font(15, "bold"), text_color=t_c
             )
-            dinner_head_label.pack(side="left", fill="x", expand=True)
+            d_lbl.pack(side="left", fill="x", expand=True)
 
-            table_body = tk.Frame(table_wrap, bg="#FFFDF7")
-            table_body.pack(fill="both", expand=True)
+            body_f = ctk.CTkFrame(wrap, fg_color="transparent")
+            body_f.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
-            lunch_wrap = tk.Frame(table_body, bg="#FFFDF7")
-            lunch_wrap.pack(side="left", fill="both", expand=True)
-
-            body_divider = tk.Frame(table_body, bg="#D7CCB8", width=1)
-            body_divider.pack(side="left", fill="y")
-
-            dinner_wrap = tk.Frame(table_body, bg="#FFFDF7")
-            dinner_wrap.pack(side="left", fill="both", expand=True)
-
-            lunch_text_widget = tk.Text(
-                lunch_wrap,
+            l_txt = ctk.CTkTextbox(
+                body_f,
+                font=self._font(14),
+                corner_radius=10,
+                fg_color="transparent",
+                text_color=t_c,
                 wrap="word",
-                width=1,
-                height=1,
-                font=self._font(10),
-                relief="flat",
-                bg="#FFFDF7",
-                fg="#2F2A28",
-                padx=6,
-                pady=6,
-                borderwidth=0,
+                border_spacing=5,
             )
-            lunch_scroll = ttk.Scrollbar(
-                lunch_wrap, orient="vertical", command=lunch_text_widget.yview
-            )
-            lunch_text_widget.configure(yscrollcommand=lunch_scroll.set)
-
-            lunch_text_widget.pack(side="left", fill="both", expand=True)
-            lunch_scroll.pack(side="right", fill="y")
-
-            dinner_text_widget = tk.Text(
-                dinner_wrap,
+            l_txt.pack(side="left", fill="both", expand=True, padx=(0, 5))
+            d_txt = ctk.CTkTextbox(
+                body_f,
+                font=self._font(14),
+                corner_radius=10,
+                fg_color="transparent",
+                text_color=t_c,
                 wrap="word",
-                width=1,
-                height=1,
-                font=self._font(10),
-                relief="flat",
-                bg="#FFFDF7",
-                fg="#2F2A28",
-                padx=6,
-                pady=6,
-                borderwidth=0,
+                border_spacing=5,
             )
-            dinner_scroll = ttk.Scrollbar(
-                dinner_wrap, orient="vertical", command=dinner_text_widget.yview
-            )
-            dinner_text_widget.configure(yscrollcommand=dinner_scroll.set)
+            d_txt.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
-            dinner_text_widget.pack(side="left", fill="both", expand=True)
-            dinner_scroll.pack(side="right", fill="y")
-
-            extra_var = tk.StringVar(value="")
-            extra_label = tk.Label(
+            e_var = tk.StringVar(value="")
+            e_lbl = ctk.CTkLabel(
                 card,
-                textvariable=extra_var,
-                font=self._font(9),
-                bg=card_color,
-                fg="#6B5E57",
+                textvariable=e_var,
+                font=self._font(12),
+                text_color=s_c,
                 justify="left",
-                anchor="w",
             )
-            extra_label.pack(fill="x", padx=12, pady=(0, 4))
+            e_lbl.pack(fill="x", padx=20, pady=(0, 10), anchor="w")
 
-            self._set_text(lunch_text_widget, "불러오는 중입니다...")
-            self._set_text(dinner_text_widget, "불러오는 중입니다...")
+            self._set_text(l_txt, "불러오는 중입니다...")
+            self._set_text(d_txt, "불러오는 중입니다...")
 
             self.cards.append(
                 {
                     "title_var": title_var,
-                    "subtitle_var": subtitle_var,
-                    "title_label": title_label,
-                    "subtitle_label": subtitle_label,
-                    "lunch_head_label": lunch_head_label,
-                    "dinner_head_label": dinner_head_label,
+                    "subtitle_var": sub_var,
+                    "title_label": title_lbl,
+                    "subtitle_label": sub_lbl,
+                    "lunch_head_label": l_lbl,
+                    "dinner_head_label": d_lbl,
                     "card_frame": card,
-                    "lunch_text_widget": lunch_text_widget,
-                    "dinner_text_widget": dinner_text_widget,
-                    "extra_var": extra_var,
-                    "extra_label": extra_label,
+                    "lunch_text_widget": l_txt,
+                    "dinner_text_widget": d_txt,
+                    "extra_var": e_var,
+                    "extra_label": e_lbl,
                     "default_title": cafeteria["name"],
                 }
             )
 
-        self.empty_cards_label = tk.Label(
+        self.empty_lbl = ctk.CTkLabel(
             self.cards_frame,
             text="표시할 식당을 선택해 주세요.",
-            font=self._font(13, "bold"),
-            bg="#ECE7DD",
-            fg="#6B5E57",
+            font=self._font(18, "bold"),
+            text_color=["#7F8C8D", "#BDC3C7"],
         )
         self._relayout_cards()
 
@@ -1199,239 +1164,212 @@ class MealWidgetApp:
             self._sync_pip_windows()
 
     def _relayout_cards(self) -> None:
-        if not isinstance(self.cards_frame, tk.Frame):
+        if not self.cards_frame:
             return
-
-        visible_frames: list[tk.Frame] = []
-        for index, card in enumerate(self.cards):
-            frame = card.get("card_frame")
-            if not isinstance(frame, tk.Frame):
-                continue
-
-            frame.grid_forget()
-            is_visible = (
-                self.cafe_visibility_vars[index].get()
-                if index < len(self.cafe_visibility_vars)
+        visible = [
+            c["card_frame"]
+            for i, c in enumerate(self.cards)
+            if (
+                self.cafe_visibility_vars[i].get()
+                if i < len(self.cafe_visibility_vars)
                 else True
             )
-            if is_visible:
-                visible_frames.append(frame)
+        ]
 
-        if isinstance(self.empty_cards_label, tk.Label):
-            self.empty_cards_label.grid_forget()
+        for c in self.cards:
+            c["card_frame"].grid_forget()
+        self.empty_lbl.grid_forget()
 
-        for row in range(3):
-            self.cards_frame.grid_rowconfigure(row, weight=0)
-        for col in range(2):
-            self.cards_frame.grid_columnconfigure(col, weight=0)
+        for r in range(3):
+            self.cards_frame.grid_rowconfigure(r, weight=0)
+        for c in range(2):
+            self.cards_frame.grid_columnconfigure(c, weight=0)
 
-        count = len(visible_frames)
+        count = len(visible)
         if count == 0:
             self.cards_frame.grid_rowconfigure(0, weight=1)
             self.cards_frame.grid_columnconfigure(0, weight=1)
-            self.cards_frame.grid_columnconfigure(1, weight=1)
-            if isinstance(self.empty_cards_label, tk.Label):
-                self.empty_cards_label.grid(
-                    row=0,
-                    column=0,
-                    columnspan=2,
-                    sticky="nsew",
-                    padx=14,
-                    pady=14,
-                )
+            self.empty_lbl.grid(row=0, column=0, sticky="nsew")
             return
 
         cols = 1 if count == 1 else 2
         rows = (count + cols - 1) // cols
+        for r in range(rows):
+            self.cards_frame.grid_rowconfigure(r, weight=1)
+        for c in range(cols):
+            self.cards_frame.grid_columnconfigure(c, weight=1)
 
-        for row in range(rows):
-            self.cards_frame.grid_rowconfigure(row, weight=1)
-        for col in range(cols):
-            self.cards_frame.grid_columnconfigure(col, weight=1)
+        for i, f in enumerate(visible):
+            r, c = (i, 0) if cols == 1 else divmod(i, 2)
+            cs = 2 if (cols == 2 and count % 2 == 1 and i == count - 1) else 1
+            f.grid(row=r, column=c, columnspan=cs, sticky="nsew", padx=12, pady=12)
 
-        for index, frame in enumerate(visible_frames):
-            if cols == 1:
-                row = index
-                col = 0
-                col_span = 1
-            else:
-                row, col = divmod(index, 2)
-                col_span = 1
-                if count % 2 == 1 and index == count - 1 and count > 1:
-                    col = 0
-                    col_span = 2
+    def _set_text(self, txt: ctk.CTkTextbox, text: str) -> None:
+        txt.configure(state="normal")
+        txt.delete("1.0", "end")
+        txt.insert("1.0", text)
+        txt.tag_config("center", justify="center")
+        txt.tag_add("center", "1.0", "end")
+        txt.tag_config("category", foreground="#E67E22")
+        for i, line in enumerate(text.split("\n")):
+            if line.strip().startswith("[") and line.strip().endswith("]"):
+                txt.tag_add("category", f"{i + 1}.0", f"{i + 1}.end")
+        txt.configure(state="disabled")
 
-            frame.grid(
-                row=row,
-                column=col,
-                columnspan=col_span,
-                sticky="nsew",
-                padx=10,
-                pady=10,
+    def _sync_topmost_button_style(self) -> None:
+        if self.is_topmost:
+            self.topmost_btn.configure(
+                text="항상 위: ON",
+                fg_color="#E74C3C",
+                text_color="#FFFFFF",
+                hover_color="#C0392B",
             )
-
-    def _set_text(self, text_widget: tk.Text, text: str) -> None:
-        text_widget.configure(state="normal")
-        text_widget.delete("1.0", "end")
-        text_widget.insert("1.0", text)
-        text_widget.configure(state="disabled")
+        else:
+            self.topmost_btn.configure(
+                text="항상 위: OFF",
+                fg_color="#EAECEE",
+                text_color="#1C2833",
+                hover_color="#D5DBDB",
+            )
 
     def open_source_pages(self) -> None:
-        visible_urls: list[str] = []
-        for index, cafeteria in enumerate(CAFETERIAS):
-            is_visible = (
-                self.cafe_visibility_vars[index].get()
-                if index < len(self.cafe_visibility_vars)
-                else True
-            )
-            if is_visible:
-                visible_urls.append(cafeteria["url"])
-
-        if not visible_urls:
-            self.status_var.set("표시 중인 식당이 없어 원본 페이지를 열지 않았습니다.")
-            return
-
-        for url in visible_urls:
-            webbrowser.open(url)
-
-        if len(visible_urls) == 1:
-            self.status_var.set("원본 페이지를 열었습니다.")
-        else:
-            self.status_var.set(f"원본 페이지 {len(visible_urls)}개를 열었습니다.")
+        urls = [
+            CAFETERIAS[i]["url"]
+            for i, v in enumerate(self.cafe_visibility_vars)
+            if v.get() and i < len(CAFETERIAS)
+        ]
+        for u in urls:
+            webbrowser.open(u)
+        self.status_var.set(
+            f"원본 페이지 {len(urls)}개를 열었습니다."
+            if urls
+            else "표시 중인 식당이 없어 원본 페이지를 열지 않았습니다."
+        )
 
     def _sync_pip_windows(self) -> None:
-        if not self.is_pip_mode:
-            return
-        self._open_pip_windows()
-        self._render_pip_windows(self.latest_notes)
+        if self.is_pip_mode:
+            self._open_pip_windows()
+            self._render_pip_windows(self.latest_notes)
 
     def _close_pip_windows(self) -> None:
-        for window_info in self.pip_windows:
-            window = window_info.get("window")
-            if isinstance(window, tk.Toplevel) and window.winfo_exists():
-                window.destroy()
+        for w in self.pip_windows:
+            win = w.get("window")
+            if win and win.winfo_exists():
+                win.destroy()
         self.pip_windows.clear()
 
-    def _on_close_pip_window(self, index: int) -> None:
-        if index < len(self.cafe_visibility_vars):
-            self.cafe_visibility_vars[index].set(False)
-        self._on_toggle_cafeteria()
+    def _on_close_pip_window(self, idx: int) -> None:
+        remaining = []
+        for w in self.pip_windows:
+            win = w.get("window")
+            w_idx = w.get("index")
+            if w_idx == idx:
+                if win and win.winfo_exists():
+                    win.destroy()
+                continue
+            remaining.append(w)
+        self.pip_windows = remaining
 
     def _open_pip_windows(self) -> None:
-        self._close_pip_windows()
-
-        visible_indices = [
-            index
-            for index, var in enumerate(self.cafe_visibility_vars)
-            if var.get() and index < len(CAFETERIAS)
+        visible = [
+            i
+            for i, v in enumerate(self.cafe_visibility_vars)
+            if v.get() and i < len(CAFETERIAS)
         ]
-        if not visible_indices:
-            return
+
+        alive = []
+        for w in self.pip_windows:
+            win = w.get("window")
+            idx = w.get("index")
+            if idx not in visible:
+                if win and win.winfo_exists():
+                    win.destroy()
+            else:
+                alive.append(w)
+        self.pip_windows = alive
+
+        open_indices = {w.get("index") for w in self.pip_windows}
 
         self.root.update_idletasks()
-        base_x = self.root.winfo_rootx() + 24
-        base_y = self.root.winfo_rooty() + 92
-        window_width = 360
-        window_height = 430
-        cols = 2
+        bx, by = self.root.winfo_rootx() + 30, self.root.winfo_rooty() + 100
+        ww, wh = 380, 480
+        CARD_BG_COLORS = [
+            ["#FDF2E9", "#6E2C00"],
+            ["#E8F8F5", "#0E6251"],
+            ["#EBF5FB", "#154360"],
+            ["#F4ECF7", "#512E5F"],
+        ]
 
-        for order, index in enumerate(visible_indices):
-            cafeteria = CAFETERIAS[index]
-            row, col = divmod(order, cols)
-            x = base_x + col * (window_width + 18)
-            y = base_y + row * (window_height + 18)
+        for order, idx in enumerate(visible):
+            if idx in open_indices:
+                continue
 
-            color = CARD_COLORS[index % len(CARD_COLORS)]
-            window = tk.Toplevel(self.root)
-            window.title(f"PIP - {cafeteria['name']}")
-            window.configure(bg=color)
-            window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-            window.minsize(280, 300)
-            window.attributes("-topmost", True)
-            window.attributes("-alpha", 0.97)
-            window.protocol(
-                "WM_DELETE_WINDOW",
-                lambda i=index: self._on_close_pip_window(i),
+            caf = CAFETERIAS[idx]
+            r, c = divmod(order, 2)
+            x, y = bx + c * (ww + 20), by + r * (wh + 20)
+
+            c_color = CARD_BG_COLORS[idx % len(CARD_BG_COLORS)]
+            win = ctk.CTkToplevel(self.root)
+            win.title(f"PIP - {caf['name']}")
+            win.geometry(f"{ww}x{wh}+{x}+{y}")
+            win.minsize(300, 350)
+            win.attributes("-topmost", True)
+            win.attributes("-alpha", 0.95)
+            win.protocol("WM_DELETE_WINDOW", lambda i=idx: self._on_close_pip_window(i))
+
+            main_f = ctk.CTkFrame(win, corner_radius=15, fg_color=c_color)
+            main_f.pack(fill="both", expand=True, padx=10, pady=10)
+
+            t_v = tk.StringVar(value=caf["name"])
+            s_v = tk.StringVar(value="")
+
+            t_lbl = ctk.CTkLabel(
+                main_f,
+                textvariable=t_v,
+                font=self._font(16, "bold"),
+                text_color=["#17202A", "#FDFEFE"],
             )
+            t_lbl.pack(fill="x", padx=15, pady=(15, 0), anchor="w")
 
-            tape = tk.Frame(window, bg="#FFF7CC", height=10)
-            tape.pack(fill="x", padx=70, pady=(8, 4))
-
-            title_var = tk.StringVar(value=cafeteria["name"])
-            subtitle_var = tk.StringVar(value="")
-
-            title_label = tk.Label(
-                window,
-                textvariable=title_var,
-                font=self._font(13, "bold"),
-                bg=color,
-                fg="#3A312D",
-                anchor="w",
+            s_lbl = ctk.CTkLabel(
+                main_f,
+                textvariable=s_v,
+                font=self._font(12),
+                text_color=["#566573", "#B3B6B7"],
             )
-            title_label.pack(fill="x", padx=12)
+            # Removed subtitle packing in PIP mode
 
-            subtitle_label = tk.Label(
-                window,
-                textvariable=subtitle_var,
-                font=self._font(9),
-                bg=color,
-                fg="#66564D",
-                justify="left",
-                anchor="w",
+            b_f = ctk.CTkFrame(
+                main_f, corner_radius=10, fg_color=["#FFFFFF", "#2C3E50"]
             )
-            subtitle_label.pack(fill="x", padx=12, pady=(2, 6))
+            b_f.pack(fill="both", expand=True, padx=12, pady=(0, 15))
 
-            body_wrap = tk.Frame(
-                window,
-                bg="#FFFDF7",
-                bd=1,
-                relief="solid",
-                highlightthickness=1,
-                highlightbackground="#CDBFA8",
-            )
-            body_wrap.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-            body_text = tk.Text(
-                body_wrap,
+            b_txt = ctk.CTkTextbox(
+                b_f,
+                font=self._font(13),
+                corner_radius=10,
+                fg_color="transparent",
+                text_color=["#17202A", "#FDFEFE"],
                 wrap="word",
-                width=1,
-                height=1,
-                font=self._font(9),
-                relief="flat",
-                bg="#FFFDF7",
-                fg="#2F2A28",
-                padx=8,
-                pady=8,
-                borderwidth=0,
             )
-            body_scroll = ttk.Scrollbar(
-                body_wrap,
-                orient="vertical",
-                command=body_text.yview,
-            )
-            body_text.configure(yscrollcommand=body_scroll.set)
-
-            body_text.pack(side="left", fill="both", expand=True)
-            body_scroll.pack(side="right", fill="y")
-
-            self._set_text(body_text, "불러오는 중입니다...")
+            b_txt.pack(fill="both", expand=True, padx=8, pady=8)
 
             self.pip_windows.append(
                 {
-                    "index": index,
-                    "window": window,
-                    "title_var": title_var,
-                    "subtitle_var": subtitle_var,
-                    "body_text": body_text,
+                    "index": idx,
+                    "window": win,
+                    "title_var": t_v,
+                    "subtitle_var": s_v,
+                    "body_text": b_txt,
                 }
             )
 
     def toggle_topmost(self) -> None:
+        if self.is_pip_mode:
+            return
         self.is_topmost = not self.is_topmost
         self.root.attributes("-topmost", self.is_topmost)
-        self.topmost_btn.configure(
-            text=f"항상 위: {'ON' if self.is_topmost else 'OFF'}"
-        )
+        self._sync_topmost_button_style()
 
     def toggle_pip_mode(self) -> None:
         self.is_pip_mode = not self.is_pip_mode
@@ -1445,239 +1383,172 @@ class MealWidgetApp:
 
     def _apply_mode_styles(self) -> None:
         if self.is_pip_mode:
-            self.saved_window_geometry = self.root.geometry()
+            self.saved_geometry = self.root.geometry()
             self.was_topmost_before_pip = self.is_topmost
-            self.root.minsize(620, 420)
-            self.root.geometry("860x540")
-            self.root.attributes("-alpha", 0.95)
-
-            self.is_topmost = True
-            self.root.attributes("-topmost", True)
-            self.topmost_btn.configure(text="항상 위: ON")
-            self.pip_btn.configure(text="PIP 모드: ON")
+            self.root.minsize(700, 500)
+            self.root.geometry("1000x650")
+            self.root.attributes("-alpha", 0.96)
+            self.is_topmost = False
+            self.root.attributes("-topmost", False)
+            self.topmost_btn.configure(state="disabled")
+            self._sync_topmost_button_style()
+            self.pip_btn.configure(text="PIP 모드: ON", fg_color="#F39C12")
         else:
             self.root.attributes("-alpha", 1.0)
-            self.root.minsize(920, 620)
-            self.root.geometry(self.saved_window_geometry or self.normal_geometry)
-
+            self.root.minsize(1050, 700)
+            self.root.geometry(self.saved_geometry or self.normal_geometry)
             self.is_topmost = self.was_topmost_before_pip
             self.root.attributes("-topmost", self.is_topmost)
-            self.topmost_btn.configure(
-                text=f"항상 위: {'ON' if self.is_topmost else 'OFF'}"
-            )
-            self.pip_btn.configure(text="PIP 모드: OFF")
+            self.topmost_btn.configure(state="normal")
+            self._sync_topmost_button_style()
+            self.pip_btn.configure(text="PIP 모드: OFF", fg_color="#34495E")
 
-        for card in self.cards:
-            title_label = card.get("title_label")
-            subtitle_label = card.get("subtitle_label")
-            lunch_head_label = card.get("lunch_head_label")
-            dinner_head_label = card.get("dinner_head_label")
-            lunch_text_widget = card.get("lunch_text_widget")
-            dinner_text_widget = card.get("dinner_text_widget")
-            extra_label = card.get("extra_label")
+        font_shift = -3 if self.is_pip_mode else 0
+        for c in self.cards:
+            if "title_label" in c:
+                c["title_label"].configure(font=self._font(20 + font_shift, "bold"))
+            if "subtitle_label" in c:
+                c["subtitle_label"].configure(font=self._font(13 + font_shift))
+            if "lunch_head_label" in c:
+                c["lunch_head_label"].configure(
+                    font=self._font(15 + font_shift, "bold")
+                )
+            if "dinner_head_label" in c:
+                c["dinner_head_label"].configure(
+                    font=self._font(15 + font_shift, "bold")
+                )
+            if "lunch_text_widget" in c:
+                c["lunch_text_widget"].configure(font=self._font(14 + font_shift))
+            if "dinner_text_widget" in c:
+                c["dinner_text_widget"].configure(font=self._font(14 + font_shift))
+            if "extra_label" in c:
+                c["extra_label"].configure(font=self._font(12 + font_shift))
 
-            if isinstance(title_label, tk.Label):
-                title_label.configure(
-                    font=self._font(13 if self.is_pip_mode else 15, "bold")
-                )
-            if isinstance(subtitle_label, tk.Label):
-                subtitle_label.configure(font=self._font(9 if self.is_pip_mode else 10))
-            if isinstance(lunch_head_label, tk.Label):
-                lunch_head_label.configure(
-                    font=self._font(10 if self.is_pip_mode else 11, "bold")
-                )
-            if isinstance(dinner_head_label, tk.Label):
-                dinner_head_label.configure(
-                    font=self._font(10 if self.is_pip_mode else 11, "bold")
-                )
-            if isinstance(lunch_text_widget, tk.Text):
-                lunch_text_widget.configure(
-                    font=self._font(9 if self.is_pip_mode else 10)
-                )
-            if isinstance(dinner_text_widget, tk.Text):
-                dinner_text_widget.configure(
-                    font=self._font(9 if self.is_pip_mode else 10)
-                )
-            if isinstance(extra_label, tk.Label):
-                extra_label.configure(font=self._font(8 if self.is_pip_mode else 9))
-
-    def _build_subtitle(self, note: dict[str, object]) -> str:
+    def _build_subtitle(self, note: dict) -> str:
         if note.get("error"):
             return "식단 로딩 실패"
+        dl = str(note.get("date_label", ""))
+        p = str(note.get("period", "확인 불가"))
+        return dl if self.is_pip_mode else f"{dl}\n주간: {p}"
 
-        date_label = str(note.get("date_label", ""))
-        period = str(note.get("period", "확인 불가"))
-        if self.is_pip_mode:
-            return date_label
-        return f"{date_label}\n주간: {period}"
-
-    def _get_bucket_entries(
-        self, note: dict[str, object], bucket: str
-    ) -> list[tuple[str, list[str]]]:
+    def _get_bucket_entries(self, note: dict, bucket: str) -> list:
         grouped = note.get("grouped")
         if not isinstance(grouped, dict):
             return []
-
-        raw_entries = grouped.get(bucket, [])
-        if not isinstance(raw_entries, list):
+        raw = grouped.get(bucket, [])
+        if not isinstance(raw, list):
             return []
-
-        entries: list[tuple[str, list[str]]] = []
-        for raw in raw_entries:
-            if not isinstance(raw, (tuple, list)) or len(raw) != 2:
+        entries = []
+        for r in raw:
+            if not isinstance(r, (tuple, list)) or len(r) != 2:
                 continue
-
-            meal_type = str(raw[0]).strip()
-            raw_lines = raw[1]
-            lines: list[str] = []
-            if isinstance(raw_lines, list):
-                for item in raw_lines:
-                    text = str(item).strip()
-                    if text:
-                        lines.append(text)
-            else:
-                text = str(raw_lines).strip()
-                if text:
-                    lines.append(text)
-
-            entries.append((meal_type, lines))
-
+            mt = str(r[0]).strip()
+            rl = r[1]
+            lines = (
+                [str(i).strip() for i in rl if str(i).strip()]
+                if isinstance(rl, list)
+                else ([str(rl).strip()] if str(rl).strip() else [])
+            )
+            entries.append((mt, lines))
         return entries
 
-    def _format_bucket_entries(
-        self, entries: list[tuple[str, list[str]]], max_lines: int
-    ) -> str:
+    def _format_bucket_entries(self, entries: list, max_lines: int) -> str:
         if not entries:
-            return "등록된 메뉴 없음"
-
-        lines: list[str] = []
-        used_lines = 0
-        show_meal_type = len(entries) > 1
-
-        for meal_type, menu_items in entries:
-            items = menu_items or ["등록된 식단내용이 없습니다."]
-            if show_meal_type:
-                lines.append(meal_type)
-
-            for item in items:
-                if used_lines >= max_lines:
+            return "등록된 메뉴가 없습니다."
+        lines, used, show = [], 0, len(entries) > 1
+        for mt, m_items in entries:
+            items = m_items or ["등록된 메뉴가 없습니다."]
+            if show:
+                lines.append(f"[{mt}]")
+            for i in items:
+                if used >= max_lines:
                     lines.append("...더 있음")
                     return "\n".join(lines).strip()
-                prefix = "  - " if show_meal_type else "• "
-                lines.append(f"{prefix}{item}")
-                used_lines += 1
-
-            if show_meal_type:
+                lines.append(i)
+                used += 1
+            if show:
                 lines.append("")
-
         return "\n".join(lines).strip()
 
-    def _build_section_text(self, note: dict[str, object], bucket: str) -> str:
-        error = note.get("error")
-        if isinstance(error, str) and error:
-            if bucket == "lunch":
-                return f"오류: {error}"
-            return "확인 불가"
-
+    def _build_section_text(self, note: dict, bucket: str) -> str:
+        err = note.get("error")
+        if isinstance(err, str) and err:
+            return f"오류: {err}" if bucket == "lunch" else "확인 불가"
         entries = self._get_bucket_entries(note, bucket)
         if not bucket_has_real_items(entries):
             if bucket == "dinner" and note.get("dinner_available_any_day") is False:
-                return "학교 식단표에 저녁 메뉴가 등록되지 않았습니다."
+                return "등록된 메뉴가 없습니다."
             if bucket == "lunch" and note.get("lunch_available_any_day") is False:
-                return "학교 식단표에 점심 메뉴가 등록되지 않았습니다."
+                return "등록된 메뉴가 없습니다."
+        max_lz = 11 if self.is_pip_mode else 30
+        return self._format_bucket_entries(entries, max_lz)
 
-        max_lines = 10 if self.is_pip_mode else 28
-        return self._format_bucket_entries(entries, max_lines)
-
-    def _build_extra_info(self, note: dict[str, object]) -> str:
+    def _build_extra_info(self, note: dict) -> str:
         if note.get("error"):
             return ""
-
-        breakfast_count = len(self._get_bucket_entries(note, "breakfast"))
-        other_count = len(self._get_bucket_entries(note, "other"))
-        parts: list[str] = []
-        if breakfast_count:
-            parts.append(f"아침 {breakfast_count}개")
-        if other_count:
-            parts.append(f"기타 {other_count}개")
-
-        if not parts:
+        bc = len(self._get_bucket_entries(note, "breakfast"))
+        oc = len(self._get_bucket_entries(note, "other"))
+        p = []
+        if bc:
+            p.append(f"아침 {bc}개")
+        if oc:
+            p.append(f"기타 {oc}개")
+        if not p:
             return ""
+        return f"{'추가 메뉴' if self.is_pip_mode else '추가 메뉴:'} {', '.join(p)}"
 
-        prefix = "추가 메뉴" if self.is_pip_mode else "추가 메뉴:"
-        return f"{prefix} {', '.join(parts)}"
+    def _build_pip_note_text(self, note: dict) -> str:
+        lt = self._build_section_text(note, "lunch")
+        dt_ = self._build_section_text(note, "dinner")
+        pt = [f"[점심]\n{lt}", f"[저녁]\n{dt_}"]
+        et = self._build_extra_info(note)
+        if et:
+            pt.append(f"[추가]\n{et}")
+        return "\n\n".join(pt).strip()
 
-    def _build_pip_note_text(self, note: dict[str, object]) -> str:
-        lunch_text = self._build_section_text(note, "lunch")
-        dinner_text = self._build_section_text(note, "dinner")
-        parts = [f"[점심]\n{lunch_text}", f"[저녁]\n{dinner_text}"]
-
-        extra_text = self._build_extra_info(note)
-        if extra_text:
-            parts.append(f"[추가]\n{extra_text}")
-
-        return "\n\n".join(parts).strip()
-
-    def _render_pip_windows(self, notes: list[dict[str, object]]) -> None:
+    def _render_pip_windows(self, notes: list) -> None:
         if not self.is_pip_mode:
             return
-
-        alive_windows: list[dict[str, object]] = []
-        for window_info in self.pip_windows:
-            window = window_info.get("window")
-            if not isinstance(window, tk.Toplevel) or not window.winfo_exists():
+        alive = []
+        for w in self.pip_windows:
+            win = w.get("window")
+            if not win or not win.winfo_exists():
                 continue
-
-            index = window_info.get("index")
-            if not isinstance(index, int):
+            idx = w.get("index")
+            if not isinstance(idx, int):
                 continue
+            note = notes[idx] if idx < len(notes) else {}
+            dt_ = CAFETERIAS[idx]["name"] if idx < len(CAFETERIAS) else "식당"
+            tv, sv, bt = w.get("title_var"), w.get("subtitle_var"), w.get("body_text")
+            if tv:
+                tv.set(str(note.get("title", dt_)))
+            if sv:
+                sv.set(self._build_subtitle(note))
+            if bt:
+                self._set_text(bt, self._build_pip_note_text(note))
+            alive.append(w)
+        self.pip_windows = alive
 
-            note = notes[index] if index < len(notes) else {}
-            default_title = (
-                CAFETERIAS[index]["name"] if index < len(CAFETERIAS) else "식당"
+    def _render_notes(self, notes: list) -> None:
+        for i, c in enumerate(self.cards):
+            note = notes[i] if i < len(notes) else {}
+            tv, sv, ev, dt_ = (
+                c.get("title_var"),
+                c.get("subtitle_var"),
+                c.get("extra_var"),
+                str(c.get("default_title", "")),
             )
-
-            title_var = window_info.get("title_var")
-            subtitle_var = window_info.get("subtitle_var")
-            body_text = window_info.get("body_text")
-
-            if isinstance(title_var, tk.StringVar):
-                title_var.set(str(note.get("title", default_title)))
-            if isinstance(subtitle_var, tk.StringVar):
-                subtitle_var.set(self._build_subtitle(note))
-            if isinstance(body_text, tk.Text):
-                self._set_text(body_text, self._build_pip_note_text(note))
-
-            alive_windows.append(window_info)
-
-        self.pip_windows = alive_windows
-
-    def _render_notes(self, notes: list[dict[str, object]]) -> None:
-        for index, card in enumerate(self.cards):
-            note = notes[index] if index < len(notes) else {}
-
-            title_var = card.get("title_var")
-            subtitle_var = card.get("subtitle_var")
-            lunch_text_widget = card.get("lunch_text_widget")
-            dinner_text_widget = card.get("dinner_text_widget")
-            extra_var = card.get("extra_var")
-            default_title = str(card.get("default_title", ""))
-
-            if isinstance(title_var, tk.StringVar):
-                title_var.set(str(note.get("title", default_title)))
-            if isinstance(subtitle_var, tk.StringVar):
-                subtitle_var.set(self._build_subtitle(note))
-            if isinstance(lunch_text_widget, tk.Text):
-                self._set_text(
-                    lunch_text_widget, self._build_section_text(note, "lunch")
-                )
-            if isinstance(dinner_text_widget, tk.Text):
-                self._set_text(
-                    dinner_text_widget, self._build_section_text(note, "dinner")
-                )
-            if isinstance(extra_var, tk.StringVar):
-                extra_var.set(self._build_extra_info(note))
-
+            lt, rt = c.get("lunch_text_widget"), c.get("dinner_text_widget")
+            if tv:
+                tv.set(str(note.get("title", dt_)))
+            if sv:
+                sv.set(self._build_subtitle(note))
+            if lt:
+                self._set_text(lt, self._build_section_text(note, "lunch"))
+            if rt:
+                self._set_text(rt, self._build_section_text(note, "dinner"))
+            if ev:
+                ev.set(self._build_extra_info(note))
         if self.is_pip_mode:
             self._render_pip_windows(notes)
 
@@ -1685,77 +1556,55 @@ class MealWidgetApp:
         if self.is_refreshing:
             self.pending_refresh = True
             return
-
-        target_date = self.selected_date
+        td = self.selected_date
         self.is_refreshing = True
         self.pending_refresh = False
-        self.status_var.set(f"업데이트 중... ({format_korean_date(target_date)})")
+        self.status_var.set(f"업데이트 중... ({format_korean_date(td)})")
+        threading.Thread(target=self._refresh_worker, args=(td,), daemon=True).start()
 
-        thread = threading.Thread(
-            target=self._refresh_worker,
-            args=(target_date,),
-            daemon=True,
-        )
-        thread.start()
-
-    def _refresh_worker(self, target_date: dt.date) -> None:
-        notes: list[dict[str, object]] = []
-        errors = 0
-
-        for cafeteria in CAFETERIAS:
+    def _refresh_worker(self, td: dt.date) -> None:
+        notes, errs = [], 0
+        for c in CAFETERIAS:
             try:
-                notes.append(fetch_cafeteria_note(cafeteria, target_date=target_date))
-            except Exception as exc:  # noqa: BLE001
-                errors += 1
+                notes.append(fetch_cafeteria_note(c, target_date=td))
+            except Exception as e:
+                errs += 1
                 notes.append(
                     {
-                        "title": cafeteria["name"],
-                        "date_label": f"{format_korean_date(target_date)}\n식단 로딩 실패",
+                        "title": c["name"],
+                        "date_label": f"{format_korean_date(td)}\n식단 로딩 실패",
                         "period": "-",
                         "full_text": "",
                         "compact_text": "",
-                        "source_title": cafeteria["name"],
-                        "url": cafeteria["url"],
-                        "error": str(exc),
-                        "selected_date": target_date.strftime("%Y.%m.%d"),
+                        "source_title": c["name"],
+                        "url": c["url"],
+                        "error": str(e),
+                        "selected_date": td.strftime("%Y.%m.%d"),
                     }
                 )
+        self.root.after(0, lambda: self._apply_notes(notes, errs, td))
 
-        self.root.after(0, lambda: self._apply_notes(notes, errors, target_date))
-
-    def _apply_notes(
-        self,
-        notes: list[dict[str, object]],
-        errors: int,
-        target_date: dt.date,
-    ) -> None:
-        if target_date != self.selected_date:
+    def _apply_notes(self, notes: list, errs: int, td: dt.date) -> None:
+        if td != self.selected_date:
             self.is_refreshing = False
             self.pending_refresh = False
             self.refresh_data()
             return
-
         self.latest_notes = notes
         self._render_notes(notes)
-
-        now_text = dt.datetime.now().strftime("최근 업데이트: %Y-%m-%d %H:%M")
-        self.last_update_var.set(now_text)
-
-        status_suffix = f" ({format_korean_date(target_date)})"
-        if errors:
-            self.status_var.set(f"완료 (일부 실패: {errors}개){status_suffix}")
-        else:
-            base_status = "완료 / PIP" if self.is_pip_mode else "완료"
-            self.status_var.set(f"{base_status}{status_suffix}")
-
+        self.last_update_var.set(
+            dt.datetime.now().strftime("최근 업데이트: %Y-%m-%d %H:%M")
+        )
+        ss = f" ({format_korean_date(td)})"
+        bs = "완료 / PIP" if self.is_pip_mode else "완료"
+        self.status_var.set(f"완료 (일부 실패: {errs}개){ss}" if errs else f"{bs}{ss}")
         self.is_refreshing = False
         if self.pending_refresh:
             self.pending_refresh = False
             self.refresh_data()
 
     def _schedule_periodic_refresh(self) -> None:
-        interval_ms = REFRESH_MINUTES * 60 * 1000
-        self.root.after(interval_ms, self._periodic_refresh)
+        self.root.after(REFRESH_MINUTES * 60 * 1000, self._periodic_refresh)
 
     def _periodic_refresh(self) -> None:
         self.refresh_data()
@@ -1764,7 +1613,9 @@ class MealWidgetApp:
 
 def main() -> None:
     set_windows_app_user_model_id()
-    root = tk.Tk()
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme("blue")
+    root = ctk.CTk()
     app = MealWidgetApp(root)
     _ = app
     root.mainloop()

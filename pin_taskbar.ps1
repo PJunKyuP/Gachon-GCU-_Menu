@@ -1,5 +1,5 @@
 param(
-    [string]$ExePath = "$PSScriptRoot\dist\GachonMealWidget.exe"
+    [string]$ExePath = "$PSScriptRoot\dist\GachonMenu.exe"
 )
 
 if (-not (Test-Path $ExePath)) {
@@ -28,6 +28,6 @@ try {
 }
 catch {
     Write-Host "Automatic taskbar refresh failed."
-    Write-Host "Please pin dist\GachonMealWidget.exe manually from Explorer."
+    Write-Host "Please pin dist\GachonMenu.exe manually from Explorer."
     exit 2
 }
