@@ -36,8 +36,13 @@ if exist "%LOGO_ICO%" (
     set "PYI_ICON=--icon %LOGO_ICO%"
 )
 
+set "PYI_VERSION="
+if exist "version_info.txt" (
+    set "PYI_VERSION=--version-file version_info.txt"
+)
+
 echo [2/3] Building executable (without UPX)...
-python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --collect-all customtkinter %PYI_ADD_DATA% %PYI_ICON% --name "GachonMenu" "gachon_meal_widget.py"
+python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --collect-all customtkinter %PYI_ADD_DATA% %PYI_ICON% %PYI_VERSION% --name "GachonMenu" "gachon_meal_widget.py"
 if errorlevel 1 goto :fail
 
 echo [3/3] Done: dist\GachonMenu.exe
